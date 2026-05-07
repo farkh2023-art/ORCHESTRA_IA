@@ -1,0 +1,343 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pgvector(map: "vector")]
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+enum ProjectStatus {
+  PENDING
+  RUNNING
+  DONE
+  FAILED
+}
+
+enum AgentSlug {
+  COORDINATOR
+  ANALYST
+  ARCHITECT
+  RESEARCHER
+  WRITER
+  CRITIC
+  INTEGRATOR
+}
+
+enum AgentInstanceStatus {
+  PENDING
+  RUNNING
+  DONE
+  FAILED
+}
+
+enum TaskStatus {
+  PENDING
+  QUEUED
+  RUNNING
+  DONE
+  FAILED
+  SKIPPED
+}
+
+enum MessageRole {
+  SYSTEM
+  USER
+  ASSISTANT
+  TOOL
+}
+
+enum KnowledgeSourceType {
+  TASK
+  FILE
+  URL
+  MANUAL
+}
+
+// ---------------------------------------------------------------------------
+// Auth + Multi-tenant
+// ---------------------------------------------------------------------------
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users           User[]
+  projects        Project[]
+  knowledgeChunks KnowledgeChunk[]
+  traces          Trace[]
+}
+
+model User {
+  id             String    @id @default(cuid())
+  organizationId String?
+  name           String?
+  email          String?   @unique
+  emailVerified  DateTime?
+  image          String?
+  role           UserRole  @default(MEMBER)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  accounts     Account[]
+  sessions     Session[]
+  projects     Project[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ---------------------------------------------------------------------------
+// Gestion de projet
+// ---------------------------------------------------------------------------
+
+model Project {
+  id             String        @id @default(cuid())
+  organizationId String?
+  createdById    String?
+  title          String
+  brief          String        @db.Text
+  status         ProjectStatus @default(PENDING)
+  metadata       Json?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  organization    Organization?    @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  createdBy       User?            @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  specs           ProjectSpec[]
+  agentInstances  AgentInstance[]
+  knowledgeChunks KnowledgeChunk[]
+  traces          Trace[]
+
+  @@index([organizationId])
+  @@index([createdById])
+}
+
+model ProjectSpec {
+  id        String   @id @default(cuid())
+  projectId String
+  version   Int      @default(1)
+  content   Json
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, version])
+}
+
+// ---------------------------------------------------------------------------
+// Exécution agent
+// ---------------------------------------------------------------------------
+
+model AgentTemplate {
+  id            String    @id @default(cuid())
+  slug          AgentSlug @unique
+  name          String
+  description   String    @db.Text
+  model         String    @default("claude-sonnet-4-6")
+  systemPrompt  String    @db.Text
+  pipelineOrder Int       @default(0)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  tasks Task[]
+
+  @@index([pipelineOrder])
+}
+
+model AgentInstance {
+  id          String              @id @default(cuid())
+  projectId   String
+  status      AgentInstanceStatus @default(PENDING)
+  metadata    Json?
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  project           Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks             Task[]
+  messages          Message[]
+  validationReports ValidationReport[]
+
+  @@index([projectId])
+  @@index([status])
+}
+
+model Task {
+  id              String     @id @default(cuid())
+  agentInstanceId String
+  agentSlug       AgentSlug
+  status          TaskStatus @default(PENDING)
+  dependsOn       String[]   @default([])
+  input           Json?
+  output          Json?
+  error           String?    @db.Text
+  tokensUsed      Int?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  agentInstance     AgentInstance      @relation(fields: [agentInstanceId], references: [id], onDelete: Cascade)
+  agentTemplate     AgentTemplate      @relation(fields: [agentSlug], references: [slug])
+  messages          Message[]
+  traces            Trace[]
+  validationReports ValidationReport[]
+
+  @@index([agentInstanceId, agentSlug])
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Communication
+// ---------------------------------------------------------------------------
+
+model Message {
+  id              String      @id @default(cuid())
+  agentInstanceId String
+  taskId          String?
+  role            MessageRole
+  content         String      @db.Text
+  metadata        Json?
+  createdAt       DateTime    @default(now())
+
+  agentInstance AgentInstance @relation(fields: [agentInstanceId], references: [id], onDelete: Cascade)
+  task          Task?         @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  @@index([agentInstanceId])
+  @@index([taskId])
+}
+
+// ---------------------------------------------------------------------------
+// Base de connaissance vectorielle (modèle unifié)
+// ---------------------------------------------------------------------------
+
+model KnowledgeChunk {
+  id             String              @id @default(cuid())
+  organizationId String
+  projectId      String?
+  sourceType     KnowledgeSourceType
+  sourceId       String
+  title          String
+  content        String              @db.Text
+  metadata       Json?
+  embedding      Unsupported("vector(1536)")?
+  createdAt      DateTime            @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([sourceType, sourceId])
+}
+
+// ---------------------------------------------------------------------------
+// Observabilité — trace d'appel LLM
+// ---------------------------------------------------------------------------
+
+model Trace {
+  id             String     @id @default(cuid())
+  organizationId String
+  projectId      String?
+  agentSlug      AgentSlug?
+  taskId         String?
+  provider       String
+  model          String
+  tokensIn       Int
+  tokensOut      Int
+  costUsd        Float
+  latencyMs      Int
+  inputHash      String
+  outputHash     String
+  metadata       Json?
+  createdAt      DateTime   @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  task         Task?        @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([taskId])
+  @@index([agentSlug])
+}
+
+// ---------------------------------------------------------------------------
+// Rapports de validation (multi-niveaux : tâche et/ou instance)
+// ---------------------------------------------------------------------------
+
+model ValidationReport {
+  id              String   @id @default(cuid())
+  agentInstanceId String?
+  taskId          String?
+  overallScore    Float
+  alignmentScore  Float
+  issues          Json
+  strengths       Json
+  recommendations Json
+  approved        Boolean
+  rejectedOutputs Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  agentInstance AgentInstance? @relation(fields: [agentInstanceId], references: [id], onDelete: Cascade)
+  task          Task?          @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([agentInstanceId])
+  @@index([taskId])
+}
