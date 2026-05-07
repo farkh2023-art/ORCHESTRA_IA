@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { z } from "zod";
 import Anthropic from "@anthropic-ai/sdk";
-import { type Prisma } from "@prisma/client";
+import { type AgentSlug, type Prisma } from "@prisma/client";
 import { anthropic, estimateCostUsd } from "@/lib/llm";
 import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
@@ -10,6 +10,10 @@ import { costGuard } from "@/lib/costGuard";
 const RETRY_DELAYS_MS = [1_000, 2_000, 4_000];
 const MAX_ATTEMPTS = RETRY_DELAYS_MS.length + 1; // 4 tentatives au total
 const FALLBACK_MODEL = "claude-haiku-4-5-20251001";
+
+function toLegacyAgentSlug(role: string): AgentSlug {
+  return role as AgentSlug;
+}
 
 function sha256(s: string): string {
   return createHash("sha256").update(s).digest("hex");
@@ -49,12 +53,22 @@ export async function runAgentTask<T>({
   const task = await db.task.findUniqueOrThrow({
     where: { id: taskId },
     include: {
-      agentTemplate: true,
-      agentInstance: { include: { project: true } },
+      agentInstance: { include: { project: true, agentTemplate: true } },
     },
   });
 
-  const { agentTemplate, agentInstance } = task;
+  const { agentInstance } = task;
+  const agentTemplate = agentInstance.agentTemplate;
+  // Official ORCHESTRA_IA routing. Task.agentSlug is legacy and must not drive execution.
+  const role = agentInstance.role ?? agentTemplate?.role;
+  if (!role || !agentTemplate) {
+    const err = new Error("Role AgentInstance ou AgentTemplate manquant");
+    await db.task.update({
+      where: { id: taskId },
+      data: { status: "FAILED", error: err.message, completedAt: new Date() },
+    });
+    throw err;
+  }
   const orgId = agentInstance.project.organizationId;
   const inputStr = JSON.stringify(task.input ?? {});
 
@@ -74,7 +88,7 @@ export async function runAgentTask<T>({
     data: { status: "RUNNING", startedAt: new Date() },
   });
 
-  logger.info({ taskId, agentSlug: task.agentSlug }, "Agent démarré");
+  logger.info({ taskId, role }, "Agent demarre");
 
   // ── 4. Garde budgétaire ────────────────────────────────────────────────
   try {
@@ -141,7 +155,7 @@ export async function runAgentTask<T>({
         data: {
           organizationId: orgId,
           projectId: agentInstance.projectId,
-          agentSlug: task.agentSlug,
+          agentSlug: toLegacyAgentSlug(role),
           taskId: task.id,
           provider: "anthropic",
           model: currentModel,
@@ -170,7 +184,7 @@ export async function runAgentTask<T>({
         },
       });
 
-      logger.info({ taskId, agentSlug: task.agentSlug, attempt, model: currentModel }, "Agent terminé OK");
+      logger.info({ taskId, role, attempt, model: currentModel }, "Agent termine OK");
       return validated;
     } catch (err) {
       lastError = err;

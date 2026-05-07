@@ -36,6 +36,16 @@ enum AgentSlug {
   INTEGRATOR
 }
 
+enum AgentRole {
+  COORDINATOR
+  ANALYST
+  ARCHITECT
+  RESEARCHER
+  WRITER
+  CRITIC
+  INTEGRATOR
+}
+
 enum AgentInstanceStatus {
   PENDING
   RUNNING
@@ -184,6 +194,7 @@ model ProjectSpec {
 model AgentTemplate {
   id            String    @id @default(cuid())
   slug          AgentSlug @unique
+  role          AgentRole @unique
   name          String
   description   String    @db.Text
   model         String    @default("claude-sonnet-4-6")
@@ -193,7 +204,8 @@ model AgentTemplate {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  tasks Task[]
+  agentInstances AgentInstance[]
+  tasks          Task[]
 
   @@index([pipelineOrder])
 }
@@ -201,6 +213,7 @@ model AgentTemplate {
 model AgentInstance {
   id          String              @id @default(cuid())
   projectId   String
+  role        AgentRole?
   status      AgentInstanceStatus @default(PENDING)
   metadata    Json?
   startedAt   DateTime?
@@ -209,17 +222,20 @@ model AgentInstance {
   updatedAt   DateTime            @updatedAt
 
   project           Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  agentTemplate     AgentTemplate?     @relation(fields: [role], references: [role])
   tasks             Task[]
   messages          Message[]
   validationReports ValidationReport[]
 
   @@index([projectId])
+  @@index([role])
   @@index([status])
 }
 
 model Task {
   id              String     @id @default(cuid())
   agentInstanceId String
+  /// Legacy compatibility field. Official runtime routing uses AgentInstance.role / AgentTemplate.role.
   agentSlug       AgentSlug
   status          TaskStatus @default(PENDING)
   dependsOn       String[]   @default([])

@@ -3,7 +3,6 @@ import { agentQueue } from "@/lib/queue";
 
 type TaskReady = {
   id: string;
-  agentSlug: string;
   dependsOn: string[];
   agentInstance: { projectId: string; project: { organizationId: string | null } };
 };
@@ -18,7 +17,7 @@ async function allDepsAreDone(deps: string[]): Promise<boolean> {
 
 async function enqueueTask(task: TaskReady): Promise<void> {
   await db.task.update({ where: { id: task.id }, data: { status: "QUEUED" } });
-  await agentQueue.add(task.agentSlug, {
+  await agentQueue.add("agent-task", {
     taskId: task.id,
     projectId: task.agentInstance.projectId,
     organizationId: task.agentInstance.project.organizationId ?? "",
@@ -27,14 +26,13 @@ async function enqueueTask(task: TaskReady): Promise<void> {
 
 const TASK_SELECT = {
   id: true,
-  agentSlug: true,
   dependsOn: true,
   agentInstance: {
     select: { projectId: true, project: { select: { organizationId: true } } },
   },
 } as const;
 
-export async function dispatchReady(projectId: string): Promise<string[]> {
+export async function dispatchReadyTasks(projectId: string): Promise<string[]> {
   const pending = await db.task.findMany({
     where: { agentInstance: { projectId }, status: "PENDING" },
     select: TASK_SELECT,
@@ -49,6 +47,8 @@ export async function dispatchReady(projectId: string): Promise<string[]> {
   }
   return dispatched;
 }
+
+export const dispatchReady = dispatchReadyTasks;
 
 export async function unlockDependents(completedTaskId: string): Promise<string[]> {
   const candidates = await db.task.findMany({

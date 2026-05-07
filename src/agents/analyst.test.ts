@@ -60,13 +60,15 @@ const MOCK_TASK = {
     complexity: "MEDIUM",
     gaps: [],
   },
-  agentTemplate: {
-    slug: "ANALYST",
-    model: "claude-sonnet-4-6",
-    systemPrompt: "Tu es l'agent Analyste.",
-  },
   agentInstance: {
     id: "instance-xyz",
+    role: "ANALYST" as const,
+    agentTemplate: {
+      slug: "ANALYST",
+      role: "ANALYST",
+      model: "claude-sonnet-4-6",
+      systemPrompt: "Tu es l'agent Analyste.",
+    },
     projectId: "project-123",
     project: { id: "project-123", organizationId: "org-456" },
   },

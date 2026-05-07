@@ -1,9 +1,10 @@
-import { PrismaClient, AgentSlug } from "@prisma/client";
+import { PrismaClient, AgentRole, AgentSlug } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
 const templates: Array<{
   slug: AgentSlug;
+  role: AgentRole;
   name: string;
   description: string;
   model: string;
@@ -12,6 +13,7 @@ const templates: Array<{
 }> = [
   {
     slug: "COORDINATOR",
+    role: "COORDINATOR",
     name: "Coordinateur",
     description:
       "Point d'entrée de l'Instance. Reçoit le brief, le structure et orchestre le plan d'exécution de l'équipe.",
@@ -66,6 +68,7 @@ Réponds toujours en français. Sois précis, concis et orienté action.`,
   },
   {
     slug: "ANALYST",
+    role: "ANALYST",
     name: "Analyste",
     description:
       "Analyse le brief structuré, produit un rapport SWOT, risques, KPIs et priorités de recherche.",
@@ -123,6 +126,7 @@ Réponds toujours en français. Appuie tes analyses sur des faits concrets.`,
   },
   {
     slug: "ARCHITECT",
+    role: "ARCHITECT",
     name: "Architecte",
     description:
       "Conçoit la structure technique ou organisationnelle du projet, définit les composants et leurs interactions.",
@@ -182,6 +186,7 @@ Réponds toujours en français. Sois rigoureux et pragmatique.`,
   },
   {
     slug: "RESEARCHER",
+    role: "RESEARCHER",
     name: "Chercheur",
     description:
       "Effectue les recherches approfondies, compile données et sources vérifiées selon les priorités définies.",
@@ -238,6 +243,7 @@ Réponds toujours en français. Cite systématiquement tes sources.`,
   },
   {
     slug: "WRITER",
+    role: "WRITER",
     name: "Rédacteur",
     description:
       "Synthétise tous les outputs des agents en un rapport final professionnel et des livrables textuels.",
@@ -295,6 +301,7 @@ Réponds toujours en français. Clarté, précision, lisibilité avant tout.`,
   },
   {
     slug: "CRITIC",
+    role: "CRITIC",
     name: "Critique",
     description:
       "Évalue rigoureusement la qualité de tous les outputs, détecte les incohérences et décide de l'approbation.",
@@ -361,6 +368,7 @@ Réponds toujours en français. Approuve uniquement si score ≥ 7/10.`,
   },
   {
     slug: "INTEGRATOR",
+    role: "INTEGRATOR",
     name: "Intégrateur",
     description:
       "Intègre et harmonise tous les outputs validés en un livrable final cohérent, prêt pour la livraison.",
@@ -434,6 +442,7 @@ async function main() {
     const tpl = await prisma.agentTemplate.upsert({
       where: { slug: data.slug },
       update: {
+        role: data.role,
         name: data.name,
         description: data.description,
         model: data.model,

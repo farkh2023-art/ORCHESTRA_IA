@@ -168,6 +168,27 @@ export const IntegrationPackageSchema = z.object({
 });
 export type IntegrationPackage = z.infer<typeof IntegrationPackageSchema>;
 
+export const CoreAgentRoleSchema = z.enum([
+  "COORDINATOR",
+  "ANALYST",
+  "ARCHITECT",
+  "RESEARCHER",
+  "WRITER",
+  "CRITIC",
+  "INTEGRATOR",
+] as const);
+export type CoreAgentRole = z.infer<typeof CoreAgentRoleSchema>;
+
+export const AgentOutputSchemas = {
+  COORDINATOR: StructuredBriefSchema,
+  ANALYST: AnalysisReportSchema,
+  ARCHITECT: ArchitectureReportSchema,
+  RESEARCHER: ResearchReportSchema,
+  WRITER: WriterDraftSchema,
+  CRITIC: ValidationReportPayloadSchema,
+  INTEGRATOR: IntegrationPackageSchema,
+} as const satisfies Record<CoreAgentRole, z.ZodType<unknown>>;
+
 // ---------------------------------------------------------------------------
 // Entrées API
 // ---------------------------------------------------------------------------
@@ -208,17 +229,9 @@ export type TraceLLM = z.infer<typeof TraceLLMSchema>;
 // ---------------------------------------------------------------------------
 
 export const AgentJobSchema = z.object({
-  agentInstanceId: z.string().cuid(),
-  agentSlug: z.enum([
-    "COORDINATOR",
-    "ANALYST",
-    "ARCHITECT",
-    "RESEARCHER",
-    "WRITER",
-    "CRITIC",
-    "INTEGRATOR",
-  ] as const),
   taskId: z.string().cuid(),
-  input: z.record(z.unknown()),
+  projectId: z.string().cuid(),
+  organizationId: z.string().cuid(),
+  attempt: z.number().int().positive().optional(),
 });
 export type AgentJob = z.infer<typeof AgentJobSchema>;

@@ -18,8 +18,11 @@ import { runAgentTask } from "./runtime";
 describe("runAgentTask (runtime)", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("route ANALYST vers runAgentCore avec son schema", async () => {
-    mockFindUniqueOrThrow.mockResolvedValueOnce({ agentSlug: "ANALYST" });
+  it("choisit le schema selon AgentInstance.role", async () => {
+    mockFindUniqueOrThrow.mockResolvedValueOnce({
+      agentSlug: "CRITIC",
+      agentInstance: { role: "ANALYST", agentTemplate: { role: "WRITER", slug: "WRITER" } },
+    });
     mockRunAgentCore.mockResolvedValueOnce({ swot: {} });
 
     await runAgentTask("task-1");
@@ -30,10 +33,38 @@ describe("runAgentTask (runtime)", () => {
     );
   });
 
-  it("throw si agentSlug non enregistré", async () => {
-    mockFindUniqueOrThrow.mockResolvedValueOnce({ agentSlug: "UNKNOWN_AGENT" });
+  it("utilise AgentTemplate.role si AgentInstance.role est absent", async () => {
+    mockFindUniqueOrThrow.mockResolvedValueOnce({
+      agentSlug: "CRITIC",
+      agentInstance: { role: null, agentTemplate: { role: "WRITER", slug: "ANALYST" } },
+    });
+    mockRunAgentCore.mockResolvedValueOnce({ title: "Draft" });
 
-    await expect(runAgentTask("task-x")).rejects.toThrow("Agent non enregistré");
+    await runAgentTask("task-2");
+
+    expect(mockRunAgentCore).toHaveBeenCalledWith(
+      expect.objectContaining({ taskId: "task-2", schema: expect.anything() })
+    );
+  });
+
+  it("n'utilise pas AgentTemplate.slug pour router", async () => {
+    mockFindUniqueOrThrow.mockResolvedValueOnce({
+      agentSlug: "CRITIC",
+      agentInstance: { role: null, agentTemplate: { role: null, slug: "WRITER" } },
+    });
+
+    await expect(runAgentTask("task-legacy")).rejects.toThrow("Role AgentInstance manquant");
+
+    expect(mockRunAgentCore).not.toHaveBeenCalled();
+  });
+
+  it("throw si aucun role AgentInstance ou template n'est disponible", async () => {
+    mockFindUniqueOrThrow.mockResolvedValueOnce({
+      agentSlug: "ANALYST",
+      agentInstance: { role: null, agentTemplate: null },
+    });
+
+    await expect(runAgentTask("task-x")).rejects.toThrow("Role AgentInstance manquant");
 
     expect(mockRunAgentCore).not.toHaveBeenCalled();
   });

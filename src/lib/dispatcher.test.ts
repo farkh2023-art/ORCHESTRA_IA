@@ -44,7 +44,7 @@ describe("dispatchReady", () => {
     expect(mockTaskUpdate).toHaveBeenCalledWith(
       expect.objectContaining({ data: { status: "QUEUED" } })
     );
-    expect(mockQueueAdd).toHaveBeenCalledWith("ANALYST", {
+    expect(mockQueueAdd).toHaveBeenCalledWith("agent-task", {
       taskId: "task-1",
       projectId: "project-abc",
       organizationId: "org-123",
@@ -73,7 +73,7 @@ describe("dispatchReady", () => {
     const dispatched = await dispatchReady("project-abc");
 
     expect(dispatched).toEqual(["task-2"]);
-    expect(mockQueueAdd).toHaveBeenCalledWith("RESEARCHER", {
+    expect(mockQueueAdd).toHaveBeenCalledWith("agent-task", {
       taskId: "task-2",
       projectId: "project-abc",
       organizationId: "org-123",
@@ -114,7 +114,7 @@ describe("unlockDependents", () => {
     expect(mockTaskUpdate).toHaveBeenCalledWith(
       expect.objectContaining({ data: { status: "QUEUED" } })
     );
-    expect(mockQueueAdd).toHaveBeenCalledWith("RESEARCHER", {
+    expect(mockQueueAdd).toHaveBeenCalledWith("agent-task", {
       taskId: "task-2",
       projectId: "project-abc",
       organizationId: "org-123",
