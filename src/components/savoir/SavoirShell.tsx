@@ -1,12 +1,20 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { auth } from "@/auth";
 
 const nav = [
   { href: "/projects/new", label: "Nouveau projet" },
   { href: "/registry", label: "Registry" },
 ];
 
-export function SavoirShell({ children }: { children: ReactNode }) {
+export async function SavoirShell({ children }: { children: ReactNode }) {
+  let session = null;
+  try {
+    session = await auth();
+  } catch {
+    // auth indisponible (DB hors ligne ou secret absent) → afficher "Se connecter"
+  }
+
   return (
     <main className="savoir-grid min-h-screen bg-[#05091A] text-white">
       <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-5 py-5 sm:px-8">
@@ -25,6 +33,21 @@ export function SavoirShell({ children }: { children: ReactNode }) {
                 {item.label}
               </Link>
             ))}
+            {session?.user ? (
+              <Link
+                href="/account"
+                className="rounded-lg px-3 py-2 transition hover:bg-white/10 hover:text-white"
+              >
+                {session.user.name ?? session.user.email ?? "Compte"}
+              </Link>
+            ) : (
+              <Link
+                href="/sign-in"
+                className="rounded-lg bg-[#00E5D1]/10 px-3 py-2 text-[#75FFF2] transition hover:bg-[#00E5D1]/20"
+              >
+                Se connecter
+              </Link>
+            )}
           </nav>
         </header>
         <div className="flex-1 py-8">{children}</div>

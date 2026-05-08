@@ -1,10 +1,12 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockGetProjectStatus, mockIsSafeProjectId } = vi.hoisted(() => ({
+const { mockAuth, mockGetProjectStatus, mockIsSafeProjectId } = vi.hoisted(() => ({
+  mockAuth: vi.fn(),
   mockGetProjectStatus: vi.fn(),
   mockIsSafeProjectId: vi.fn(),
 }));
 
+vi.mock("@/auth", () => ({ auth: mockAuth }));
 vi.mock("@/lib/projects/status", () => ({
   getProjectStatus: mockGetProjectStatus,
   isSafeProjectId: mockIsSafeProjectId,
@@ -12,7 +14,25 @@ vi.mock("@/lib/projects/status", () => ({
 
 import { GET } from "@/app/api/projects/[id]/status/route";
 
+const VALID_SESSION = { user: { id: "user-1", email: "u@test.com" } };
+
 describe("GET /api/projects/[id]/status", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockAuth.mockResolvedValue(VALID_SESSION);
+  });
+
+  it("retourne 401 si non authentifié", async () => {
+    mockAuth.mockResolvedValueOnce(null);
+
+    const response = await GET(new Request("http://localhost/api/projects/any/status"), {
+      params: Promise.resolve({ id: "any" }),
+    });
+
+    expect(response.status).toBe(401);
+    expect(await response.json()).toEqual({ error: "Non authentifié" });
+  });
+
   it("rejette un projectId invalide", async () => {
     mockIsSafeProjectId.mockReturnValueOnce(false);
 

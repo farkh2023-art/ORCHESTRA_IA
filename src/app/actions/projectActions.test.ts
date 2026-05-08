@@ -1,14 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockDispatchReadyTasks, mockMessageCreate, mockRevalidatePath, mockTaskFindUniqueOrThrow, mockTaskUpdate } =
-  vi.hoisted(() => ({
-    mockDispatchReadyTasks: vi.fn(),
-    mockMessageCreate: vi.fn(),
-    mockRevalidatePath: vi.fn(),
-    mockTaskFindUniqueOrThrow: vi.fn(),
-    mockTaskUpdate: vi.fn(),
-  }));
+const {
+  mockAuth,
+  mockDispatchReadyTasks,
+  mockMessageCreate,
+  mockRevalidatePath,
+  mockTaskFindUniqueOrThrow,
+  mockTaskUpdate,
+} = vi.hoisted(() => ({
+  mockAuth: vi.fn(),
+  mockDispatchReadyTasks: vi.fn(),
+  mockMessageCreate: vi.fn(),
+  mockRevalidatePath: vi.fn(),
+  mockTaskFindUniqueOrThrow: vi.fn(),
+  mockTaskUpdate: vi.fn(),
+}));
 
+vi.mock("@/auth", () => ({ auth: mockAuth }));
 vi.mock("next/cache", () => ({ revalidatePath: mockRevalidatePath }));
 vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
 vi.mock("@/lib/dispatcher", () => ({ dispatchReadyTasks: mockDispatchReadyTasks }));
@@ -29,8 +37,13 @@ vi.mock("@/lib/db", () => ({
 
 import { respondHumanCheckpointAction } from "@/app/actions/projectActions";
 
+const VALID_SESSION = { user: { id: "user-1", email: "u@test.com", organizationId: null } };
+
 describe("respondHumanCheckpointAction", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockAuth.mockResolvedValue(VALID_SESSION);
+  });
 
   it("enregistre la réponse HITL, repasse la task en PENDING et redispatche le projet", async () => {
     mockTaskFindUniqueOrThrow.mockResolvedValueOnce({
