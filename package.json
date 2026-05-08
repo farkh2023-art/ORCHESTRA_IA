@@ -11,6 +11,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
     "worker": "tsx src/workers/index.ts",
     "worker:dev": "tsx watch src/workers/index.ts"
   },
@@ -41,6 +42,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "^1.59.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
