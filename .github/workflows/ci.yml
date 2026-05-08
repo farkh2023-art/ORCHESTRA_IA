@@ -1,0 +1,112 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  ci:
+    name: Lint · Test · E2E
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        # pgvector/pgvector:pg16 ships with the pgvector extension pre-installed.
+        # The standard postgres:16 image does NOT include pgvector.
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: savoir_ia
+          POSTGRES_PASSWORD: savoir_ia_secret
+          POSTGRES_DB: savoir_ia
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://savoir_ia:savoir_ia_secret@localhost:5432/savoir_ia
+      REDIS_URL: redis://localhost:6379
+      # Auth.js — CI-only non-production secret. Store AUTH_SECRET in GitHub Secrets for staging/prod.
+      AUTH_SECRET: ci-test-secret-not-for-production-replace-with-github-secret
+      # OAuth providers: placeholder values prevent empty-string errors while avoiding real credentials.
+      # OAuth login flows are not exercised in CI — only UI rendering is tested.
+      AUTH_GITHUB_ID: ci-placeholder
+      AUTH_GITHUB_SECRET: ci-placeholder
+      AUTH_GOOGLE_ID: ci-placeholder
+      AUTH_GOOGLE_SECRET: ci-placeholder
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      # No Anthropic API calls in CI — agents return predefined mock responses.
+      MOCK_LLM: "true"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # pnpm install runs the Prisma postinstall (prisma generate) via onlyBuiltDependencies.
+      # Explicit generate ensures the client matches the current schema even if the cache is stale.
+      - name: Generate Prisma client
+        run: pnpm prisma generate
+
+      - name: Apply DB schema
+        run: pnpm prisma db push --skip-generate --accept-data-loss
+
+      - name: Seed AgentTemplates
+        run: pnpm db:seed
+
+      - name: Seed mock session (local-mock user + org + session)
+        run: pnpm db:seed:mock
+
+      - name: TypeScript typecheck
+        run: pnpm typecheck
+
+      - name: ESLint
+        run: pnpm lint
+
+      - name: Vitest (unit tests)
+        run: pnpm test
+
+      - name: Install Playwright browsers
+        run: pnpm playwright install chromium --with-deps
+
+      - name: Playwright E2E — standard (30 tests, non authentifié)
+        run: pnpm test:e2e
+
+      - name: Playwright E2E — authentifié (4 tests, mock session)
+        run: pnpm test:e2e:auth
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
