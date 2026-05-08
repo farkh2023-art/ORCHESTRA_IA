@@ -1,0 +1,11 @@
+ALTER TYPE "ProjectStatus" ADD VALUE IF NOT EXISTS 'WAITING_HUMAN';
+ALTER TYPE "TaskStatus" ADD VALUE IF NOT EXISTS 'WAITING_HUMAN';
+
+CREATE TYPE "ValidationStatus" AS ENUM ('APPROVED', 'REJECTED', 'NEEDS_FIX');
+CREATE TYPE "ValidationScope" AS ENUM ('TASK', 'FINAL');
+
+ALTER TABLE "Project" ADD COLUMN "finalOutput" JSONB;
+
+ALTER TABLE "ValidationReport"
+  ADD COLUMN "scope" "ValidationScope" NOT NULL DEFAULT 'TASK',
+  ADD COLUMN "status" "ValidationStatus" NOT NULL DEFAULT 'NEEDS_FIX';

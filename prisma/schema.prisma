@@ -24,6 +24,7 @@ enum ProjectStatus {
   RUNNING
   DONE
   FAILED
+  WAITING_HUMAN
 }
 
 enum AgentSlug {
@@ -60,6 +61,7 @@ enum TaskStatus {
   DONE
   FAILED
   SKIPPED
+  WAITING_HUMAN
 }
 
 enum MessageRole {
@@ -74,6 +76,17 @@ enum KnowledgeSourceType {
   FILE
   URL
   MANUAL
+}
+
+enum ValidationStatus {
+  APPROVED
+  REJECTED
+  NEEDS_FIX
+}
+
+enum ValidationScope {
+  TASK
+  FINAL
 }
 
 // ---------------------------------------------------------------------------
@@ -158,6 +171,7 @@ model Project {
   title          String
   brief          String        @db.Text
   status         ProjectStatus @default(PENDING)
+  finalOutput    Json?
   metadata       Json?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
@@ -341,6 +355,8 @@ model ValidationReport {
   id              String   @id @default(cuid())
   agentInstanceId String?
   taskId          String?
+  scope           ValidationScope  @default(TASK)
+  status          ValidationStatus @default(NEEDS_FIX)
   overallScore    Float
   alignmentScore  Float
   issues          Json
