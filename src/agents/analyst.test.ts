@@ -30,7 +30,7 @@ vi.mock("@/lib/logger", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-// ── Fixtures ──────────────────────────────────────────────────────────────────
+// ── Fixtures ───────────────────────────────────────────────────────────[...]
 
 const VALID_REPORT = {
   swot: {
@@ -81,7 +81,7 @@ function apiResponse(text: string) {
   };
 }
 
-// ── Suite de tests ────────────────────────────────────────────────────────────
+// ── Suite de tests ─────────────────────────────────────────────────────────[...]
 
 describe("runAnalyst", () => {
   beforeEach(() => {
@@ -207,9 +207,8 @@ describe("runAnalyst", () => {
 
     const { runAnalyst } = await import("./analyst");
     const promise = runAnalyst("task-abc");
-    const assertion = expect(promise).rejects.toThrow("API indisponible");
     await vi.runAllTimersAsync();
-    await assertion;
+    await expect(promise).rejects.toThrow("API indisponible");
 
     const lastCallArgs = mockTaskUpdate.mock.calls.at(-1)![0] as { data: { status: string; error: string } };
     expect(lastCallArgs.data.status).toBe("FAILED");
@@ -223,9 +222,8 @@ describe("runAnalyst", () => {
 
     const { runAnalyst } = await import("./analyst");
     const promise = runAnalyst("task-abc");
-    const assertion = expect(promise).rejects.toThrow();
     await vi.runAllTimersAsync();
-    await assertion;
+    await expect(promise).rejects.toThrow();
 
     expect(mockMessagesCreate).toHaveBeenCalledTimes(4); // 1 initial + 3 retries
 
@@ -262,7 +260,9 @@ describe("runAnalyst", () => {
     mockTraceAggregate.mockResolvedValueOnce({ _sum: { costUsd: 10.5 } });
 
     const { runAnalyst } = await import("./analyst");
-    await expect(runAnalyst("task-abc")).rejects.toThrow(
+    const promise = runAnalyst("task-abc");
+    await vi.runAllTimersAsync();
+    await expect(promise).rejects.toThrow(
       "Budget MAX_PROJECT_USD dépassé"
     );
 
