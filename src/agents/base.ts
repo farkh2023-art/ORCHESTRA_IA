@@ -1,8 +1,9 @@
 import { createHash } from "node:crypto";
 import type { z } from "zod";
 import Anthropic from "@anthropic-ai/sdk";
-import { type AgentSlug, type Prisma } from "@prisma/client";
+import { type AgentRole, type AgentSlug, type Prisma } from "@prisma/client";
 import { anthropic, estimateCostUsd } from "@/lib/llm";
+import { MOCK_LLM_RESPONSES } from "@/lib/llmMock";
 import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { costGuard } from "@/lib/costGuard";
@@ -90,7 +91,54 @@ export async function runAgentTask<T>({
 
   logger.info({ taskId, role }, "Agent demarre");
 
-  // ── 4. Garde budgétaire ────────────────────────────────────────────────
+  // ── 4. Mode mock LLM (MOCK_LLM=true) — court-circuite Anthropic ────────
+  if (process.env.MOCK_LLM === "true") {
+    const mockOutput = MOCK_LLM_RESPONSES[role as AgentRole];
+    const mockStr = JSON.stringify(mockOutput);
+
+    await db.message.create({
+      data: {
+        agentInstanceId: agentInstance.id,
+        taskId: task.id,
+        role: "ASSISTANT",
+        content: mockStr,
+        metadata: { mock: true },
+      },
+    });
+    await db.trace.create({
+      data: {
+        organizationId: orgId,
+        projectId: agentInstance.projectId,
+        agentSlug: toLegacyAgentSlug(role),
+        taskId: task.id,
+        provider: "mock",
+        model: "mock",
+        tokensIn: 0,
+        tokensOut: 0,
+        costUsd: 0,
+        latencyMs: 0,
+        inputHash: sha256(inputStr),
+        outputHash: sha256(mockStr),
+        metadata: { mock: true },
+      },
+    });
+
+    const validated = schema.parse(mockOutput);
+    await db.task.update({
+      where: { id: taskId },
+      data: {
+        status: "DONE",
+        output: validated as Prisma.InputJsonValue,
+        tokensUsed: 0,
+        completedAt: new Date(),
+      },
+    });
+
+    logger.info({ taskId, role }, "Agent termine OK [MOCK_LLM]");
+    return validated;
+  }
+
+  // ── 5. Garde budgétaire ────────────────────────────────────────────────
   try {
     await costGuard(agentInstance.projectId);
   } catch (err) {

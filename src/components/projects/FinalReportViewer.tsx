@@ -29,20 +29,44 @@ export function FinalReportViewer({ finalOutput }: { finalOutput: unknown }) {
     URL.revokeObjectURL(url);
   }
 
+  function downloadJson() {
+    const content = JSON.stringify(finalOutput ?? {}, null, 2);
+    const blob = new Blob([content], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "orchestra-report.json";
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function printReport() {
+    window.print();
+  }
+
   return (
     <SavoirCard className="p-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="no-print flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="font-display text-xl font-semibold">Rapport final</h2>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <SavoirButton type="button" variant="secondary" onClick={copyMarkdown}>
             Copier
           </SavoirButton>
-          <SavoirButton type="button" onClick={downloadMarkdown}>
+          <SavoirButton type="button" variant="secondary" onClick={downloadMarkdown}>
             Markdown
+          </SavoirButton>
+          <SavoirButton type="button" variant="secondary" onClick={downloadJson}>
+            JSON
+          </SavoirButton>
+          <SavoirButton type="button" onClick={printReport}>
+            Imprimer
           </SavoirButton>
         </div>
       </div>
-      <pre className="mt-5 max-h-[70vh] overflow-auto rounded-lg bg-black/35 p-4 font-mono text-sm leading-6 text-white/78">
+      <pre
+        id="report-print"
+        className="mt-5 max-h-[70vh] overflow-auto rounded-lg bg-black/35 p-4 font-mono text-sm leading-6 text-white/78"
+      >
         {markdown || "Aucun rapport final disponible."}
       </pre>
     </SavoirCard>

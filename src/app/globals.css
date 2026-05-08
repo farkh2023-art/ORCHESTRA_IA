@@ -47,3 +47,15 @@ a {
 .font-display {
   font-family: var(--font-syne), var(--font-dm-sans), sans-serif;
 }
+
+@media print {
+  .no-print { display: none !important; }
+  #report-print {
+    max-height: none !important;
+    overflow: visible !important;
+    background: transparent !important;
+    color: #000 !important;
+  }
+  body { background: #fff !important; color: #000 !important; }
+  nav, footer { display: none !important; }
+}
