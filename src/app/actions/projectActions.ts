@@ -65,5 +65,6 @@ export async function respondHumanCheckpointAction(formData: FormData) {
     },
   });
   await db.task.update({ where: { id: taskId }, data: { status: "PENDING" } });
+  await dispatchReadyTasks(task.agentInstance.projectId);
   revalidatePath(`/projects/${task.agentInstance.projectId}`);
 }
