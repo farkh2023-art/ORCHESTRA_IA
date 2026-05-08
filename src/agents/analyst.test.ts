@@ -30,6 +30,11 @@ vi.mock("@/lib/logger", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
+const mockCostGuard = vi.fn();
+vi.mock("@/lib/costGuard", () => ({
+  costGuard: mockCostGuard,
+}));
+
 // ── Fixtures ───────────────────────────────────────────────────────────[...]
 
 const VALID_REPORT = {
@@ -92,6 +97,7 @@ describe("runAnalyst", () => {
     mockMessageCreate.mockResolvedValue({});
     mockTraceCreate.mockResolvedValue({});
     mockTraceAggregate.mockResolvedValue({ _sum: { costUsd: 0 } });
+    mockCostGuard.mockResolvedValue(undefined); // Par défaut, costGuard réussit
   });
 
   afterEach(() => {
@@ -257,14 +263,13 @@ describe("runAnalyst", () => {
 
   it("costGuard bloque si MAX_PROJECT_USD dépassé", async () => {
     vi.stubEnv("MAX_PROJECT_USD", "10");
-    mockTraceAggregate.mockResolvedValueOnce({ _sum: { costUsd: 10.5 } });
+    const budgetError = new Error("Budget MAX_PROJECT_USD dépassé pour le projet project-123 (10.5000 USD >= 10 USD)");
+    mockCostGuard.mockRejectedValueOnce(budgetError);
 
     const { runAnalyst } = await import("./analyst");
     const promise = runAnalyst("task-abc");
     await vi.runAllTimersAsync();
-    await expect(promise).rejects.toThrow(
-      "Budget MAX_PROJECT_USD dépassé"
-    );
+    await expect(promise).rejects.toThrow("Budget MAX_PROJECT_USD dépassé");
 
     expect(mockTaskUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
