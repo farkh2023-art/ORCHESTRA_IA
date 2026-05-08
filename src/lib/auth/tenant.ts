@@ -16,7 +16,18 @@ export async function findOrCreateOrganization(email: string) {
   const existing = await db.organization.findFirst({ where: { slug } });
   if (existing) return existing;
 
-  return db.organization.create({
-    data: { name: domain, slug },
+  return db.organization.create({ data: { name: domain, slug } });
+}
+
+export async function ensureUserOrganization(userId: string, email: string): Promise<string> {
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { organizationId: true },
   });
+
+  if (user?.organizationId) return user.organizationId;
+
+  const org = await findOrCreateOrganization(email);
+  await db.user.update({ where: { id: userId }, data: { organizationId: org.id } });
+  return org.id;
 }

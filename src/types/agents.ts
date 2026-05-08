@@ -197,6 +197,7 @@ export const CreateProjectSchema = z.object({
   title: z.string().min(3).max(200),
   brief: z.string().min(20).max(10_000),
   organizationId: z.string().cuid().optional(),
+  createdById: z.string().cuid().optional(),
   metadata: z.record(z.unknown()).optional(),
 });
 export type CreateProjectInput = z.infer<typeof CreateProjectSchema>;

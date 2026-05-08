@@ -17,6 +17,7 @@ export async function createProjectWithSpec(
       title: parsed.title,
       brief: parsed.brief,
       organizationId: parsed.organizationId,
+      createdById: parsed.createdById,
       metadata: parsed.metadata as Prisma.InputJsonValue | undefined,
     },
   });

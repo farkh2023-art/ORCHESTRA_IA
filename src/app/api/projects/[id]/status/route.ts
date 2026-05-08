@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getProjectStatus, isSafeProjectId } from "@/lib/projects/status";
+import { projectBelongsToOrganization } from "@/lib/projects/ownership";
+import { ensureUserOrganization } from "@/lib/auth/tenant";
 
 export async function GET(
   _request: Request,
@@ -14,6 +16,24 @@ export async function GET(
   const { id } = await params;
   if (!isSafeProjectId(id)) {
     return NextResponse.json({ error: "projectId invalide" }, { status: 400 });
+  }
+
+  // Résoudre l'orgId — provisionner si absent, refuser si impossible
+  let orgId = session.user.organizationId;
+  if (!orgId) {
+    if (!session.user.email) {
+      return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+    }
+    try {
+      orgId = await ensureUserOrganization(session.user.id, session.user.email);
+    } catch {
+      return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+    }
+  }
+
+  const belongs = await projectBelongsToOrganization(id, orgId);
+  if (!belongs) {
+    return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
   }
 
   const status = await getProjectStatus(id);
