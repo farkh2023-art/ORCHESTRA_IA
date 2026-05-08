@@ -90,14 +90,14 @@ function apiResponse(text: string) {
 
 describe("runAnalyst", () => {
   beforeEach(() => {
-    vi.useFakeTimers();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.clearAllMocks();
     mockTaskFindUniqueOrThrow.mockResolvedValue(MOCK_TASK);
-    mockTaskUpdate.mockResolvedValue({});
-    mockMessageCreate.mockResolvedValue({});
-    mockTraceCreate.mockResolvedValue({});
-    mockTraceAggregate.mockResolvedValue({ _sum: { costUsd: 0 } });
-    mockCostGuard.mockResolvedValue(undefined); // Par défaut, costGuard réussit
+    mockTaskUpdate.mockImplementation(() => Promise.resolve({}));
+    mockMessageCreate.mockImplementation(() => Promise.resolve({}));
+    mockTraceCreate.mockImplementation(() => Promise.resolve({}));
+    mockTraceAggregate.mockImplementation(() => Promise.resolve({ _sum: { costUsd: 0 } }));
+    mockCostGuard.mockImplementation(() => Promise.resolve(undefined));
   });
 
   afterEach(() => {
