@@ -1,5 +1,12 @@
+"use client";
+
+import "@xyflow/react/dist/style.css";
+import { Background, Controls, MarkerType, ReactFlow } from "@xyflow/react";
+import type { Edge, Node, NodeTypes } from "@xyflow/react";
+import { useMemo } from "react";
 import { SavoirCard } from "@/components/savoir/SavoirCard";
-import { TaskStatusBadge } from "@/components/dag/TaskStatusBadge";
+import { TaskNode } from "./TaskNode";
+import { buildEdges, buildNodes } from "./dagUtils";
 
 export type DagTask = {
   id: string;
@@ -8,7 +15,18 @@ export type DagTask = {
   dependsOn: string[];
 };
 
+const nodeTypes: NodeTypes = { taskNode: TaskNode };
+
+const defaultEdgeOptions = {
+  type: "smoothstep",
+  style: { stroke: "#7C5CFF", strokeWidth: 2 },
+  markerEnd: { type: MarkerType.ArrowClosed, color: "#7C5CFF" },
+};
+
 export function ProjectDagFlow({ tasks }: { tasks: DagTask[] }) {
+  const nodes = useMemo(() => buildNodes(tasks) as Node[], [tasks]);
+  const edges = useMemo(() => buildEdges(tasks) as Edge[], [tasks]);
+
   return (
     <SavoirCard className="p-5">
       <div className="mb-5 flex items-center justify-between">
@@ -16,26 +34,25 @@ export function ProjectDagFlow({ tasks }: { tasks: DagTask[] }) {
         <span className="font-mono text-xs text-white/45">{tasks.length} tasks</span>
       </div>
       {tasks.length === 0 ? (
-        <p className="text-sm text-white/55">Aucun plan DAG cree.</p>
+        <p className="text-sm text-white/55">
+          {"Le DAG sera affiché après validation du plan d'exécution."}
+        </p>
       ) : (
-        <div className="grid gap-3">
-          {tasks.map((task, index) => (
-            <div
-              key={task.id}
-              className="grid gap-3 rounded-lg border border-white/10 bg-black/20 p-4 sm:grid-cols-[36px_1fr_auto]"
-            >
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#7C5CFF]/20 font-mono text-sm text-[#C9BEFF]">
-                {index + 1}
-              </div>
-              <div>
-                <p className="font-semibold">{task.role}</p>
-                <p className="mt-1 font-mono text-xs text-white/45">
-                  dependsOn: {task.dependsOn.length > 0 ? task.dependsOn.join(", ") : "root"}
-                </p>
-              </div>
-              <TaskStatusBadge status={task.status} />
-            </div>
-          ))}
+        <div className="h-80 overflow-hidden rounded-lg bg-[#05091A]">
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            nodeTypes={nodeTypes}
+            defaultEdgeOptions={defaultEdgeOptions}
+            fitView
+            colorMode="dark"
+            nodesDraggable={false}
+            nodesConnectable={false}
+            elementsSelectable={false}
+          >
+            <Background color="#1a1f3a" />
+            <Controls showInteractive={false} />
+          </ReactFlow>
         </div>
       )}
     </SavoirCard>
