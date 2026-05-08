@@ -42,7 +42,7 @@ jobs:
       DATABASE_URL: postgresql://savoir_ia:savoir_ia_secret@localhost:5432/savoir_ia
       REDIS_URL: redis://localhost:6379
       # Auth.js — CI-only non-production secret. Store AUTH_SECRET in GitHub Secrets for staging/prod.
-      AUTH_SECRET: ci-test-secret-not-for-production-replace-with-github-secret
+AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
       # OAuth providers: placeholder values prevent empty-string errors while avoiding real credentials.
       # OAuth login flows are not exercised in CI — only UI rendering is tested.
       AUTH_GITHUB_ID: ci-placeholder
